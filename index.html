@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sổ chỉnh sửa bản vẽ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: một tờ "khung tên" bản vẽ — dải tiêu đề kiểu title block, hàng chỉ số, rồi danh sách bản vẽ / nhật ký. Ký hiệu tam giác revision màu đỏ là điểm nhấn. */
+:root{
+  --bg:#f5f6f8; --paper:#ffffff; --ink:#18212d; --muted:#5d6878; --line:#d9dee6; --line-strong:#9aa4b3;
+  --accent:#1f4f8f; --accent-soft:#e6eef9; --rev:#c8372d; --rev-soft:#fbe9e7;
+  --ok:#1d7a4a; --ok-soft:#e3f3ea; --warn:#a96400; --warn-soft:#fbf0dc; --info:#3b5bab; --info-soft:#e8edfa; --idle:#6b7280; --idle-soft:#eef0f3;
+  --f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10151c; --paper:#171e27; --ink:#e6ebf2; --muted:#98a3b3; --line:#2a3442; --line-strong:#4a5668;
+  --accent:#7fa8e6; --accent-soft:#1c2a40; --rev:#f07a6e; --rev-soft:#3a1f1d;
+  --ok:#5fcf93; --ok-soft:#173225; --warn:#f0b45a; --warn-soft:#352812; --info:#93aef0; --info-soft:#1d2542; --idle:#a3abb8; --idle-soft:#232b36;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151c; --paper:#171e27; --ink:#e6ebf2; --muted:#98a3b3; --line:#2a3442; --line-strong:#4a5668;
+  --accent:#7fa8e6; --accent-soft:#1c2a40; --rev:#f07a6e; --rev-soft:#3a1f1d;
+  --ok:#5fcf93; --ok-soft:#173225; --warn:#f0b45a; --warn-soft:#352812; --info:#93aef0; --info-soft:#1d2542; --idle:#a3abb8; --idle-soft:#232b36;
+  color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* Title block */
+.tb{background:var(--paper);border:1.5px solid var(--ink);display:grid;grid-template-columns:1fr auto;}
+.tb-main{padding:16px 18px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tb-eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tb h1{font-size:26px;font-weight:700;letter-spacing:-.01em}
+.tb-sub{color:var(--muted);max-width:62ch}
+.tb-cells{display:grid;grid-template-columns:repeat(2,minmax(110px,auto));border-left:1.5px solid var(--ink)}
+.tb-cell{padding:8px 14px;border-bottom:1px solid var(--line-strong);border-left:1px solid var(--line-strong);display:flex;flex-direction:column;justify-content:center}
+.tb-cell:nth-child(odd){border-left:0}
+.tb-cell:nth-last-child(-n+2){border-bottom:0}
+.tb-cell span{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tb-cell b{font-family:var(--f-mono);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.tb-cell b.rev{color:var(--rev)}
+@media (max-width:720px){.tb{grid-template-columns:1fr}.tb-cells{border-left:0;border-top:1.5px solid var(--ink)}}
+
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tabs{display:inline-flex;border:1px solid var(--line-strong);background:var(--paper)}
+.tabs button{border:0;background:none;padding:8px 14px;cursor:pointer;font-weight:500;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.input,select.input,textarea.input{background:var(--paper);border:1px solid var(--line-strong);padding:8px 10px;border-radius:0;min-width:0;width:100%}
+textarea.input{resize:vertical;min-height:72px}
+.search{flex:1 1 220px;min-width:0}
+.toolbar select.input{width:auto}
+.spacer{flex:1}
+.btn{border:1px solid var(--line-strong);background:var(--paper);padding:8px 14px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--rev);border-color:var(--rev)}
+.btn.ghost{border-color:transparent;background:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Revision triangle */
+.delta{display:inline-grid;place-items:center;width:30px;height:26px;position:relative;flex:none;font-family:var(--f-mono);font-weight:600;font-size:11px;color:var(--rev)}
+.delta svg{position:absolute;inset:0;width:100%;height:100%}
+.delta i{font-style:normal;position:relative;top:4px}
+
+/* Status pill */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;font-size:12px;font-weight:600;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.s-dang{color:var(--warn);background:var(--warn-soft)}
+.s-cho{color:var(--info);background:var(--info-soft)}
+.s-duyet{color:var(--ok);background:var(--ok-soft)}
+.s-phat{color:var(--accent);background:var(--accent-soft)}
+.s-huy{color:var(--idle);background:var(--idle-soft)}
+.disc{font-family:var(--f-mono);font-size:11.5px;font-weight:600;padding:1px 6px;border:1px solid var(--line-strong);color:var(--muted);white-space:nowrap}
+
+/* Panels */
+.panel{background:var(--paper);border:1px solid var(--line)}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:10px 12px;border-bottom:1.5px solid var(--ink);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:0}
+.code{font-family:var(--f-mono);font-weight:600;white-space:nowrap}
+.dname{color:var(--muted);font-size:13px}
+.desc{max-width:44ch}
+.revs{display:flex;gap:2px;flex-wrap:wrap}
+.count{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:13px}
+
+/* Empty / loading */
+.empty{padding:48px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty h3{font-size:17px}
+.empty p{color:var(--muted);max-width:52ch;margin:0}
+.banner{padding:10px 14px;border:1px solid var(--warn);background:var(--warn-soft);color:var(--ink);font-size:13px}
+
+/* Dialogs */
+dialog{border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);padding:0;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+dialog::backdrop{background:rgba(10,15,22,.45)}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.dlg-h h2{font-size:17px;flex:1;min-width:0}
+.dlg-b{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:12px;overflow:auto}
+.dlg-b .full{grid-column:1/-1}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.dlg-f .left{margin-right:auto}
+.hint{font-size:12px;color:var(--muted)}
+.err{color:var(--rev);font-size:13px}
+@media (max-width:520px){.dlg-b{grid-template-columns:1fr}}
+
+/* History */
+.hist{padding:8px 18px 18px;overflow:auto}
+.hist-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 18px 0;color:var(--muted)}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:36px 1fr;gap:12px;padding:12px 0;border-bottom:1px dashed var(--line)}
+.tl li:last-child{border-bottom:0}
+.tl-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tl-top .date{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.tl p{margin:4px 0 0}
+.tl .meta{font-size:12.5px;color:var(--muted);margin-top:4px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-weight:600;font-size:12.5px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;font-weight:500;z-index:50}
+@media (prefers-reduced-motion:no-preference){tbody tr td{transition:background .12s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="tb">
+    <div class="tb-main">
+      <div class="tb-eyebrow">Revision register · Sổ theo dõi</div>
+      <h1>Sổ chỉnh sửa bản vẽ</h1>
+      <div class="tb-sub">Ghi lại mỗi lần sửa bản vẽ: số revision, nội dung sửa, lý do, người sửa và trạng thái duyệt. Bấm vào một bản vẽ để xem toàn bộ lịch sử.</div>
+    </div>
+    <div class="tb-cells">
+      <div class="tb-cell"><span>Bản vẽ</span><b id="stDrawings">0</b></div>
+      <div class="tb-cell"><span>Lần sửa</span><b id="stRevs" class="rev">0</b></div>
+      <div class="tb-cell"><span>Đang sửa</span><b id="stWorking">0</b></div>
+      <div class="tb-cell"><span>Chờ duyệt</span><b id="stPending">0</b></div>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist">
+      <button id="tabDrawings" role="tab" aria-selected="true">Theo bản vẽ</button>
+      <button id="tabLog" role="tab" aria-selected="false">Nhật ký sửa</button>
+    </div>
+    <input id="q" class="input search" type="search" placeholder="Tìm mã, tên bản vẽ, nội dung sửa…" aria-label="Tìm kiếm">
+    <select id="fDisc" class="input" aria-label="Bộ môn"><option value="">Tất cả bộ môn</option></select>
+    <select id="fStatus" class="input" aria-label="Trạng thái"><option value="">Mọi trạng thái</option></select>
+    <span class="spacer"></span>
+    <span id="sync" class="note"></span>
+    <button id="btnRefresh" class="btn" title="Tải lại dữ liệu từ Google Sheets">Làm mới</button>
+    <button id="btnCsv" class="btn">Xuất CSV</button>
+    <button id="btnAdd" class="btn primary">+ Ghi lần sửa</button>
+  </div>
+
+  <section class="panel" id="view"></section>
+</div>
+
+<dialog id="dlgForm">
+  <form id="form" method="dialog">
+    <div class="dlg-h"><h2 id="formTitle">Ghi lần sửa bản vẽ</h2><button type="button" class="btn ghost" data-close aria-label="Đóng">✕</button></div>
+    <div class="dlg-b">
+      <div class="field"><label for="iCode">Mã bản vẽ *</label><input id="iCode" class="input mono" list="codes" required placeholder="VD: KT-MB-101" autocomplete="off"><datalist id="codes"></datalist></div>
+      <div class="field"><label for="iRev">Revision *</label><input id="iRev" class="input mono" required placeholder="A, B, P01…"><span class="hint" id="revHint"></span></div>
+      <div class="field full"><label for="iName">Tên bản vẽ</label><input id="iName" class="input" placeholder="VD: Mặt bằng tầng 1"></div>
+      <div class="field"><label for="iDisc">Bộ môn</label><select id="iDisc" class="input"></select></div>
+      <div class="field"><label for="iDate">Ngày sửa *</label><input id="iDate" class="input mono" type="date" required></div>
+      <div class="field full"><label for="iDesc">Nội dung chỉnh sửa *</label><textarea id="iDesc" class="input" required placeholder="Sửa gì, ở vị trí nào trên bản vẽ"></textarea></div>
+      <div class="field"><label for="iReason">Lý do sửa</label><select id="iReason" class="input"></select></div>
+      <div class="field"><label for="iReqBy">Yêu cầu bởi</label><input id="iReqBy" class="input" placeholder="CĐT, TVGS, QLDA…"></div>
+      <div class="field"><label for="iEditor">Người sửa</label><input id="iEditor" class="input" placeholder="Tên người thực hiện"></div>
+      <div class="field"><label for="iStatus">Trạng thái</label><select id="iStatus" class="input"></select></div>
+      <div class="field full"><label for="iNote">Ghi chú / số công văn</label><input id="iNote" class="input" placeholder="Tùy chọn"></div>
+      <div class="err full" id="formErr" hidden></div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnDel" class="btn danger left" hidden>Xóa</button>
+      <button type="button" id="btnDelConfirm" class="btn danger left" hidden>Bấm lần nữa để xóa</button>
+      <button type="button" class="btn" data-close>Hủy</button>
+      <button type="submit" id="btnSave" class="btn primary">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgHist">
+  <div class="dlg-h"><h2 id="histTitle"></h2><button type="button" class="btn ghost" data-close aria-label="Đóng">✕</button></div>
+  <div class="hist-meta" id="histMeta"></div>
+  <div class="hist"><ol class="tl" id="histList"></ol></div>
+  <div class="dlg-f"><button type="button" class="btn" data-close>Đóng</button><button type="button" id="btnHistAdd" class="btn primary">+ Thêm revision</button></div>
+</dialog>
+
+<dialog id="dlgKey">
+  <form id="keyForm">
+    <div class="dlg-h"><h2>Nhập mã truy cập</h2></div>
+    <div class="dlg-b"><div class="field full"><label for="iKey">Mã truy cập của nhóm</label><input id="iKey" class="input mono" autocomplete="off" required><span class="hint">Hỏi người quản lý sổ để lấy mã. Mã được nhớ trên trình duyệt này.</span></div></div>
+    <div class="dlg-f"><button type="submit" class="btn primary">Xác nhận</button></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ================== CẤU HÌNH ==================
+// Dán URL Web App của Google Apps Script vào giữa hai dấu ngoặc kép (dạng https://script.google.com/macros/s/.../exec)
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyH_jnos9tdU2tMWMonj3BeGfsLE20VjS-cOmHlCcHQIifBdVFvkBFXcbZ_QJUtpzrt/exec";
+// ==============================================
+
+const DISCIPLINES=[["KT","Kiến trúc"],["KC","Kết cấu"],["DIEN","Điện"],["NUOC","Cấp thoát nước"],["HVAC","Điều hòa thông gió"],["PCCC","PCCC"],["HT","Hạ tầng"],["KHAC","Khác"]];
+const STATUSES=[["dang","Đang sửa"],["cho","Chờ duyệt"],["duyet","Đã duyệt"],["phat","Đã phát hành"],["huy","Hủy bỏ"]];
+const REASONS=["Theo ý kiến CĐT","Theo ý kiến TVGS / thẩm tra","Phối hợp bộ môn (clash)","Sai sót thiết kế","Thay đổi thiết kế","Điều kiện hiện trường","Khác"];
+const discName=Object.fromEntries(DISCIPLINES), statusName=Object.fromEntries(STATUSES);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate=d=>{if(!d)return"";const p=String(d).slice(0,10).split("-");return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d};
+const today=()=>{const t=new Date();return new Date(t-t.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const hhmm=()=>new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});
+
+let rows=[], view="drawings", canWrite=true, editingId=null, histCode=null, loaded=false, loading=false;
+
+function fillSelect(el,opts,first){el.innerHTML=(first?`<option value="">${first}</option>`:"")+opts.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join("")}
+fillSelect($("fDisc"),DISCIPLINES,"Tất cả bộ môn");
+fillSelect($("fStatus"),STATUSES,"Mọi trạng thái");
+fillSelect($("iDisc"),DISCIPLINES);
+fillSelect($("iStatus"),STATUSES);
+fillSelect($("iReason"),REASONS.map(r=>[r,r]));
+
+try{const v=localStorage.getItem("rv_view");if(v==="log"||v==="drawings")view=v}catch(e){}
+function getKey(){try{return localStorage.getItem("rv_key")||""}catch(e){return""}}
+function setKey(k){try{localStorage.setItem("rv_key",k)}catch(e){}}
+
+/* ---------- Google Sheets API ---------- */
+async function api(payload){
+  if(!SCRIPT_URL)throw{code:"no_url"};
+  let res;
+  try{
+    res=payload
+      ?await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({...payload,key:getKey()})})
+      :await fetch(`${SCRIPT_URL}?action=list&key=${encodeURIComponent(getKey())}&t=${Date.now()}`);
+  }catch(e){throw{code:"network"}}
+  let j;try{j=await res.json()}catch(e){throw{code:"bad_response"}}
+  if(!j.ok)throw{code:j.error||"server",message:j.message};
+  return j;
+}
+async function load(){
+  if(loading)return;loading=true;
+  try{
+    const j=await api();rows=j.rows||[];banner("");$("sync").textContent=`Cập nhật lúc ${hhmm()}`;
+  }catch(e){
+    if(e.code==="no_url")banner("Chưa cấu hình Google Sheets. Mở file index.html, dán URL Web App vào dòng SCRIPT_URL ở đầu phần script (xem README).");
+    else if(e.code==="bad_key"){banner("Cần mã truy cập để xem sổ.");askKey()}
+    else banner("Không tải được dữ liệu từ Google Sheets. Kiểm tra mạng hoặc URL Web App, trang sẽ tự thử lại.");
+  }finally{loaded=true;loading=false;render();if($("dlgHist").open&&histCode)openHist(histCode)}
+}
+const anyDialogOpen=()=>[...document.querySelectorAll("dialog")].some(d=>d.open&&d.id!=="dlgHist");
+setInterval(()=>{if(!document.hidden&&!anyDialogOpen())load()},30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!anyDialogOpen())load()});
+
+/* ---------- Render ---------- */
+const delta=rev=>`<span class="delta" title="Revision ${esc(rev)}"><svg viewBox="0 0 30 26" aria-hidden="true"><path d="M15 2 L28 24 L2 24 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><i>${esc(rev)}</i></span>`;
+const pill=s=>`<span class="pill s-${esc(s)}">${esc(statusName[s]||s)}</span>`;
+const disc=d=>d?`<span class="disc" title="${esc(discName[d]||d)}">${esc(d)}</span>`:"";
+
+function sortKey(r){return (r.date||"")+"|"+(r.createdAt||"")}
+function groupDrawings(list){
+  const m=new Map();
+  for(const r of list){const k=r.code;if(!m.has(k))m.set(k,[]);m.get(k).push(r)}
+  return [...m.entries()].map(([code,revs])=>{revs.sort((a,b)=>sortKey(a)<sortKey(b)?-1:1);const last=revs[revs.length-1];
+    return{code,revs,last,name:[...revs].reverse().find(r=>r.name)?.name||"",disc:last.disc}}).sort((a,b)=>sortKey(b.last)<sortKey(a.last)?-1:1);
+}
+function filtered(){
+  const q=$("q").value.trim().toLowerCase(), d=$("fDisc").value, s=$("fStatus").value;
+  return rows.filter(r=>(!d||r.disc===d)&&(!s||r.status===s)&&(!q||[r.code,r.name,r.desc,r.reason,r.editor,r.reqBy,r.note,r.rev].join(" ").toLowerCase().includes(q)));
+}
+function stats(){
+  const g=groupDrawings(rows);
+  $("stDrawings").textContent=g.length;
+  $("stRevs").textContent=rows.length;
+  $("stWorking").textContent=g.filter(x=>x.last.status==="dang").length;
+  $("stPending").textContent=g.filter(x=>x.last.status==="cho").length;
+  $("codes").innerHTML=g.map(x=>`<option value="${esc(x.code)}">${esc(x.name)}</option>`).join("");
+}
+function render(){
+  $("tabDrawings").setAttribute("aria-selected",view==="drawings");
+  $("tabLog").setAttribute("aria-selected",view==="log");
+  $("btnAdd").hidden=!canWrite;
+  stats();
+  const el=$("view");
+  if(!loaded){el.innerHTML=`<div class="empty"><h3>Đang tải sổ theo dõi…</h3><p>Danh sách các lần sửa bản vẽ sẽ hiện ở đây.</p></div>`;return}
+  if(!rows.length){el.innerHTML=`<div class="empty">${delta("A")}<h3>Chưa có lần sửa nào</h3><p>Bấm <b>+ Ghi lần sửa</b> để thêm bản vẽ đầu tiên: nhập mã bản vẽ, số revision và nội dung sửa. Các lần sửa sau của cùng mã sẽ được gom vào một dòng lịch sử.</p>${canWrite&&SCRIPT_URL?'<button class="btn primary" onclick="openForm()">+ Ghi lần sửa</button>':''}</div>`;return}
+  const list=filtered();
+  if(!list.length){el.innerHTML=`<div class="empty"><h3>Không có kết quả</h3><p>Không lần sửa nào khớp bộ lọc hiện tại. Thử xóa ô tìm kiếm hoặc chọn lại bộ môn, trạng thái.</p></div>`;return}
+  if(view==="drawings"){
+    const g=groupDrawings(list);
+    el.innerHTML=`<div class="tscroll"><table><thead><tr><th>Mã bản vẽ</th><th>Bộ môn</th><th>Rev hiện tại</th><th>Các lần sửa</th><th>Sửa gần nhất</th><th>Trạng thái</th></tr></thead><tbody>${
+      g.map(x=>`<tr data-code="${esc(x.code)}"><td><div class="code">${esc(x.code)}</div><div class="dname">${esc(x.name)}</div></td><td>${disc(x.disc)}</td><td>${delta(x.last.rev)}</td>
+      <td><div class="revs">${x.revs.slice(-8).map(r=>`<span class="mono note" title="${esc(fmtDate(r.date))}">${esc(r.rev)}</span>`).join('<span class="note">›</span>')}</div><div class="note"><span class="count">${x.revs.length}</span> lần</div></td>
+      <td><div class="mono note">${fmtDate(x.last.date)}</div><div class="desc">${esc(x.last.desc)}</div></td><td>${pill(x.last.status)}</td></tr>`).join("")}</tbody></table></div>`;
+    el.querySelectorAll("tr[data-code]").forEach(tr=>tr.onclick=()=>openHist(tr.dataset.code));
+  }else{
+    const l=[...list].sort((a,b)=>sortKey(b)<sortKey(a)?-1:1);
+    el.innerHTML=`<div class="tscroll"><table><thead><tr><th>Ngày</th><th>Mã bản vẽ</th><th>Rev</th><th>Nội dung sửa</th><th>Lý do</th><th>Người sửa</th><th>Trạng thái</th></tr></thead><tbody>${
+      l.map(r=>`<tr data-id="${esc(r.id)}"><td class="mono">${fmtDate(r.date)}</td><td><div class="code">${esc(r.code)}</div><div class="dname">${esc(r.name)}</div></td><td>${delta(r.rev)}</td>
+      <td class="desc">${esc(r.desc)}${r.note?`<div class="note">${esc(r.note)}</div>`:""}</td><td><div>${esc(r.reason)}</div>${r.reqBy?`<div class="note">YC: ${esc(r.reqBy)}</div>`:""}</td><td>${esc(r.editor)}</td><td>${pill(r.status)}</td></tr>`).join("")}</tbody></table></div>`;
+    el.querySelectorAll("tr[data-id]").forEach(tr=>tr.onclick=()=>canWrite?openForm(tr.dataset.id):openHist(rows.find(r=>r.id===tr.dataset.id)?.code));
+  }
+}
+
+/* ---------- Form ---------- */
+function nextRev(rev){
+  if(!rev)return"A";
+  const m=String(rev).match(/^(.*?)(\d+)$/);
+  if(m){const n=String(+m[2]+1).padStart(m[2].length,"0");return m[1]+n}
+  const c=rev.slice(-1);
+  if(/[A-Ya-y]/.test(c))return rev.slice(0,-1)+String.fromCharCode(c.charCodeAt(0)+1);
+  return rev+"1";
+}
+function prefillFromCode(){
+  if(editingId)return;
+  const code=$("iCode").value.trim();
+  const g=groupDrawings(rows).find(x=>x.code.toLowerCase()===code.toLowerCase());
+  if(g){$("iName").value=$("iName").value||g.name;$("iDisc").value=g.disc||$("iDisc").value;$("iRev").value=nextRev(g.last.rev);$("revHint").textContent=`Rev trước: ${g.last.rev} (${fmtDate(g.last.date)})`}
+  else $("revHint").textContent=code?"Bản vẽ mới":"";
+}
+$("iCode").addEventListener("change",prefillFromCode);
+
+function openForm(id,code){
+  if(!SCRIPT_URL){toast("Chưa cấu hình Google Sheets, xem hướng dẫn trong README.");return}
+  editingId=id||null;
+  const r=id?rows.find(x=>x.id===id):null;
+  $("formTitle").textContent=r?`Sửa bản ghi ${r.code} · Rev ${r.rev}`:"Ghi lần sửa bản vẽ";
+  $("iCode").value=r?.code||code||""; $("iRev").value=r?.rev||""; $("iName").value=r?.name||"";
+  $("iDisc").value=r?.disc||"KT"; $("iDate").value=(r?.date||today()).slice(0,10); $("iDesc").value=r?.desc||"";
+  $("iReason").value=r?.reason||REASONS[0]; $("iReqBy").value=r?.reqBy||""; $("iEditor").value=r?.editor||"";
+  $("iStatus").value=r?.status||"dang"; $("iNote").value=r?.note||"";
+  $("revHint").textContent=""; $("formErr").hidden=true;
+  $("btnDel").hidden=!r; $("btnDelConfirm").hidden=true;
+  if(!r&&code)prefillFromCode();
+  if($("dlgHist").open)$("dlgHist").close();
+  $("dlgForm").showModal();
+}
+window.openForm=openForm;
+
+function apiError(e){
+  if(e.code==="bad_key")return"Mã truy cập không đúng. Tải lại trang và nhập lại mã.";
+  if(e.code==="network")return"Không kết nối được Google Sheets. Kiểm tra mạng rồi thử lại.";
+  return"Không lưu được, thử lại sau ít giây.";
+}
+$("form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const data={code:$("iCode").value.trim().toUpperCase(),rev:$("iRev").value.trim().toUpperCase(),name:$("iName").value.trim(),disc:$("iDisc").value,
+    date:$("iDate").value,desc:$("iDesc").value.trim(),reason:$("iReason").value,reqBy:$("iReqBy").value.trim(),editor:$("iEditor").value.trim(),
+    status:$("iStatus").value,note:$("iNote").value.trim()};
+  const err=$("formErr");
+  if(!data.code||!data.rev||!data.date||!data.desc){err.textContent="Cần nhập mã bản vẽ, revision, ngày sửa và nội dung sửa.";err.hidden=false;return}
+  const dup=rows.find(r=>r.code===data.code&&r.rev===data.rev&&r.id!==editingId);
+  if(dup){err.textContent=`Bản vẽ ${data.code} đã có Rev ${data.rev}. Đổi số revision hoặc sửa bản ghi cũ.`;err.hidden=false;return}
+  $("btnSave").disabled=true;$("btnSave").textContent="Đang lưu…";
+  try{
+    const j=await api({action:"upsert",row:{...data,id:editingId||""}});
+    const i=rows.findIndex(r=>r.id===j.row.id);
+    if(i>=0)rows[i]=j.row;else rows.push(j.row);
+    const wasEdit=!!editingId;
+    $("dlgForm").close();render();toast(wasEdit?"Đã cập nhật":"Đã lưu lần sửa");
+  }catch(ex){err.textContent=apiError(ex);err.hidden=false}
+  finally{$("btnSave").disabled=false;$("btnSave").textContent="Lưu"}
+});
+
+$("btnDel").onclick=()=>{$("btnDel").hidden=true;$("btnDelConfirm").hidden=false};
+$("btnDelConfirm").onclick=async()=>{
+  try{await api({action:"delete",id:editingId});rows=rows.filter(r=>r.id!==editingId);$("dlgForm").close();render();toast("Đã xóa bản ghi")}
+  catch(e){$("formErr").textContent=apiError(e);$("formErr").hidden=false}
+};
+
+/* ---------- History ---------- */
+function openHist(code){
+  if(!code)return;
+  histCode=code;
+  const revs=rows.filter(r=>r.code===code).sort((a,b)=>sortKey(b)<sortKey(a)?-1:1);
+  if(!revs.length){if($("dlgHist").open)$("dlgHist").close();return}
+  const g=groupDrawings(revs)[0];
+  $("histTitle").innerHTML=`<span class="mono">${esc(code)}</span>${g?.name?` <span class="dname">· ${esc(g.name)}</span>`:""}`;
+  $("histMeta").innerHTML=`${disc(g?.disc)} <span>${esc(discName[g?.disc]||"")}</span> · <span class="count">${revs.length}</span> lần sửa · hiện tại ${delta(g?.last.rev||"")}`;
+  $("histList").innerHTML=revs.map(r=>`<li>${delta(r.rev)}<div><div class="tl-top"><span class="date">${fmtDate(r.date)}</span>${pill(r.status)}<span class="note">${esc(r.reason)}</span></div>
+    <p>${esc(r.desc)}</p><div class="meta">${r.editor?`Người sửa: ${esc(r.editor)}`:""}${r.reqBy?` · Yêu cầu: ${esc(r.reqBy)}`:""}${r.note?` · ${esc(r.note)}`:""}</div>
+    ${canWrite?`<button class="linkbtn" data-edit="${esc(r.id)}">Sửa bản ghi</button>`:""}</div></li>`).join("");
+  $("histList").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openForm(b.dataset.edit));
+  $("btnHistAdd").hidden=!canWrite;
+  if(!$("dlgHist").open)$("dlgHist").showModal();
+}
+$("btnHistAdd").onclick=()=>openForm(null,histCode);
+
+/* ---------- Key ---------- */
+function askKey(){if(!$("dlgKey").open){$("iKey").value=getKey();$("dlgKey").showModal()}}
+$("keyForm").addEventListener("submit",e=>{e.preventDefault();setKey($("iKey").value.trim());$("dlgKey").close();load()});
+
+/* ---------- Misc ---------- */
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+$("btnAdd").onclick=()=>openForm();
+$("btnRefresh").onclick=()=>load();
+$("tabDrawings").onclick=()=>{view="drawings";try{localStorage.setItem("rv_view",view)}catch(e){}render()};
+$("tabLog").onclick=()=>{view="log";try{localStorage.setItem("rv_view",view)}catch(e){}render()};
+["q","fDisc","fStatus"].forEach(id=>$(id).addEventListener("input",render));
+
+let toastT;function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2400)}
+function banner(m){const b=$("banner");b.textContent=m||"";b.hidden=!m}
+
+$("btnCsv").onclick=()=>{
+  const head=["Mã bản vẽ","Tên bản vẽ","Bộ môn","Revision","Ngày sửa","Nội dung sửa","Lý do","Yêu cầu bởi","Người sửa","Trạng thái","Ghi chú"];
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const l=[...filtered()].sort((a,b)=>a.code===b.code?(sortKey(a)<sortKey(b)?-1:1):(a.code<b.code?-1:1));
+  const csv="﻿"+[head.map(q).join(","),...l.map(r=>[r.code,r.name,discName[r.disc]||r.disc,r.rev,fmtDate(r.date),r.desc,r.reason,r.reqBy,r.editor,statusName[r.status]||r.status,r.note].map(q).join(","))].join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download=`so-chinh-sua-ban-ve-${today()}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+};
+
+render();
+load();
+</script>
+</body>
+</html>
